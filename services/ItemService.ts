@@ -39,10 +39,19 @@ const removeLast = (): Item[] => {
 
 };
 
+const removeItem = (id: number): Item[] => {
+
+  items = items.filter(item => item.id !== id);
+
+  return items;
+
+};
+
 const ItemService = {
   getItems,
   addItem,
-  removeLast
+  removeLast,
+  removeItem
 };
 
 export default ItemService;

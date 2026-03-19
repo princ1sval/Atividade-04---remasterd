@@ -44,13 +44,22 @@ export const useItemController = () => {
 
   };
 
+  const removeItem = (id: number) => {
+
+    const newList = ItemService.removeItem(id);
+
+    setItems([...newList]);
+
+  };
+
   return {
     items,
     dialogVisible,
     openDialog,
     closeDialog,
     addItem,
-    removeLast
+    removeLast,
+    removeItem
   };
 
 };
