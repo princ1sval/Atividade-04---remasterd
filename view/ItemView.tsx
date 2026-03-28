@@ -4,64 +4,103 @@ import {
     Text,
     FlatList,
     TouchableOpacity,
-    Modal,
-    TextInput,
     StyleSheet,
-    Image
+    Image,
+    TextInput,
+    Alert
     } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Item } from "../models/Item";
 
-    import { Item } from "../models/Item";
-    import { useItemController } from "../controllers/useItemController";
+type RootStackParamList = {
+  Home: undefined;
+  AddItem: { addItem: (name: string) => { success: boolean; message?: string } };
+};
 
-    export const ItemView: React.FC = () => {
+type ItemViewNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
-    const {
-        items,
-        dialogVisible,
-        addItem,
-        openDialog,
-        closeDialog,
-        removeLast,
-        removeItem
-    } = useItemController();
+interface ItemViewProps {
+    items: Item[];
+    addItem: (name: string) => { success: boolean; message?: string };
+    removeLast: () => void;
+    removeItem: (id: number) => void;
+    editItem: (id: number, newName: string) => { success: boolean; message?: string };
+}
 
-    const [inputText, setInputText] = useState<string>("");
-    const [errorMessage, setErrorMessage] = useState<string>("");
+export const ItemView: React.FC<ItemViewProps> = ({
+    items,
+    addItem,
+    removeLast,
+    removeItem,
+    editItem
+}) => {
+    const navigation = useNavigation<ItemViewNavigationProp>();
+    const [editingItemId, setEditingItemId] = useState<number | null>(null);
+    const [editingText, setEditingText] = useState<string>("");
 
-    const handleAddItem = () => {
+    const renderItem = ({ item }: { item: Item }) => {
+        const isEditing = editingItemId === item.id;
 
-        const trimmed = inputText.trim();
+        const handleEdit = () => {
+            setEditingItemId(item.id);
+            setEditingText(item.name);
+        };
 
-        if (!trimmed) {
-        setErrorMessage("Digite um nome para o item");
-        return;
-        }
+        const handleSave = () => {
+            const result = editItem(item.id, editingText);
+            if (result.success) {
+                setEditingItemId(null);
+                setEditingText("");
+            } else {
+                Alert.alert("Erro", result.message);
+            }
+        };
 
-        const result = addItem(trimmed);
+        const handleCancel = () => {
+            setEditingItemId(null);
+            setEditingText("");
+        };
 
-        if (!result.success) {
-        setErrorMessage(result.message || "Erro ao adicionar");
-        return;
-        }
-
-        setInputText("");
-        setErrorMessage("");
-        closeDialog();
-
+        return (
+            <View style={styles.ViewItemAdicionado}>
+                {isEditing ? (
+                    <TextInput
+                        style={styles.nomeItem}
+                        value={editingText}
+                        onChangeText={setEditingText}
+                        autoFocus
+                    />
+                ) : (
+                    <Text style={styles.nomeItem}>✓ {item.name}</Text>
+                )}
+                <View style={styles.botoesContainer}>
+                    {isEditing ? (
+                        <>
+                            <TouchableOpacity onPress={handleSave} style={styles.botaoSave}>
+                                <Text style={styles.textoBotaoPequeno}>✓</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleCancel} style={styles.botaoCancel}>
+                                <Text style={styles.textoBotaoPequeno}>✕</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <>
+                            <TouchableOpacity onPress={handleEdit} style={styles.botaoEdit}>
+                                <Text style={styles.textoBotaoPequeno}>✏️</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                onPress={() => removeItem(item.id)}
+                                style={styles.botaoDeleteItem}
+                            >
+                                <Text style={styles.textoDeleteItem}>✕</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            </View>
+        );
     };
-
-    const renderItem = ({ item }: { item: Item }) => (
-        <View style={styles.ViewItemAdicionado}>
-            <Text style={styles.nomeItem}>✓ {item.name}</Text>
-            <TouchableOpacity 
-                onPress={() => removeItem(item.id)}
-                style={styles.botaoDeleteItem}
-            >
-                <Text style={styles.textoDeleteItem}>✕</Text>
-            </TouchableOpacity>
-        </View>
-
-    );
 
     return (
         <View style={styles.ViewGeral}>
@@ -90,7 +129,7 @@ import {
 
         <View style={styles.linhaBotoes}>
             <TouchableOpacity
-            onPress={openDialog}
+            onPress={() => navigation.navigate('AddItem', { addItem })}
             style={styles.botaoAdicionar}
             >
             <Text style={styles.textoBotao}>
@@ -109,48 +148,6 @@ import {
             </TouchableOpacity>
         </View>
 
-        <Modal visible={dialogVisible} transparent animationType="fade">
-            <View style={styles.sobreposicaoModal}>
-            <View style={styles.conteudoModal}>
-                <Text style={styles.tituloModal}>
-                Adiciona um novo item
-                </Text>
-                <TextInput
-                value={inputText}
-                onChangeText={(t) => {
-                    setInputText(t);
-                    setErrorMessage("");
-                }}
-                placeholder="Nome do item"
-                style={styles.entrada}
-                />
-
-                {errorMessage ? (
-                <Text style={styles.textoErro}>
-                    {errorMessage}
-                </Text>
-                ) : null}
-                <View style={styles.linhaBotoesModal}>
-                <TouchableOpacity
-                    onPress={closeDialog}
-                    style={styles.botaoCancelar}
-                    >
-                    <Text style={styles.textoBotaoCancelar}>
-                    Cancelar
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={handleAddItem}
-                    style={styles.botaoConfirmar}
-                >
-                    <Text style={styles.textoBotao}>
-                    Adicionar
-                    </Text>
-                </TouchableOpacity>
-                </View>
-            </View>
-            </View>
-        </Modal>
         </View>
     </View>
 
@@ -163,15 +160,6 @@ const styles = StyleSheet.create({
             flex: 1,
             width: "100%",
             backgroundColor: "#f8f9fa",
-        },
-        titulo: {
-            fontSize: 16,
-            fontWeight: "600",
-            marginBottom: 20,
-            padding: 14,
-            textAlign: "center",
-            color: "white",
-            letterSpacing: 0.5,
         },
         tituloLista: {
             fontSize: 18,
@@ -293,78 +281,55 @@ const styles = StyleSheet.create({
             fontSize: 18,
             fontWeight: "700",
         },
-        //A SObrepossição do modal é a parte que escurece o fundo quando o modal está aberto, para destacar o conteúdo do modal. Ou seja a tela toda!
-        sobreposicaoModal: {
-            flex: 1,
+        botoesContainer: {
+            flexDirection: "row",
+            alignItems: "center",
+        },
+        botaoEdit: {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: "#4CAF50",
             justifyContent: "center",
             alignItems: "center",
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-    
-        },
-        conteudoModal: {
-            width: 320,
-            padding: 24,
-            backgroundColor: "white",
-            borderRadius: 16,
-            borderWidth: 0,
-            shadowColor: "#000",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
-            elevation: 8,
-        },
-        tituloModal: {
-            fontSize: 20,
-            marginBottom: 18,
-            fontWeight: "700",
-            textAlign: "center",
-            color: "#333",
-            letterSpacing: 0.2,
-        },
-        entrada: {
-            borderWidth: 1,
-            borderColor: "#E0E0E0",
-            padding: 12,
-            marginBottom: 8,
-            borderRadius: 8,
-            fontSize: 15,
-            backgroundColor: "#FAFBFC",
-            color: "#333",
-        },
-        textoErro: {
-            color: "#FF6B6B",
-            marginBottom: 14,
-            fontWeight: "600",
-            fontSize: 13,
-        },
-        linhaBotoesModal: {
-            flexDirection: "row",
-            justifyContent: "space-between",
-            gap: 10,
-            marginTop: 6,
-        },
-        botaoCancelar: {
-            padding: 12,
-            backgroundColor: "#E8E8E8",
-            borderRadius: 8,
-            flex: 1,
-        },
-        botaoConfirmar: {
-            padding: 12,
-            backgroundColor: "#FF6B6B",
-            borderRadius: 8,
-            flex: 1,
-            shadowColor: "#FF6B6B",
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.25,
+            marginRight: 8,
+            shadowColor: "#4CAF50",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
             shadowRadius: 4,
-            elevation: 3,
+            elevation: 2,
         },
-        textoBotaoCancelar: {
-            textAlign: "center",
-            fontWeight: "600",
-            color: "#666",
-            fontSize: 14,
+        botaoSave: {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: "#4CAF50",
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 8,
+            shadowColor: "#4CAF50",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 2,
+        },
+        botaoCancel: {
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: "#FF6B6B",
+            justifyContent: "center",
+            alignItems: "center",
+            shadowColor: "#FF6B6B",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.2,
+            shadowRadius: 4,
+            elevation: 2,
+        },
+        textoBotaoPequeno: {
+            color: "white",
+            fontSize: 16,
+            fontWeight: "700",
         },
         flatListContent: {
             paddingBottom: 16,
